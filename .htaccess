@@ -1,0 +1,36 @@
+# MetaLib Shop - Apache/Hestia Proxy Configuration
+# This file proxies all requests to Node.js app running on localhost:3000
+
+# Enable Rewrite Engine
+RewriteEngine On
+
+# Enable proxy modules (may already be enabled on server)
+# LoadModule proxy_module modules/mod_proxy.so
+# LoadModule proxy_http_module modules/mod_proxy_http.so
+
+# Preserve original host header
+ProxyPreserveHost On
+
+# Proxy all requests to Node.js app on port 3000
+ProxyPass / http://localhost:3000/
+ProxyPassReverse / http://localhost:3000/
+
+# WebSocket support (important for Next.js hot reload in dev mode)
+RewriteCond %{HTTP:Upgrade} =websocket [NC]
+RewriteRule /(.*)           ws://localhost:3000/$1 [P,L]
+RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+RewriteRule /(.*)           http://localhost:3000/$1 [P,L]
+
+# Set headers for proxy
+RequestHeader set X-Forwarded-Proto "https"
+RequestHeader set X-Forwarded-Port "443"
+
+# CORS headers (if needed)
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+
+# Cache static files
+<FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+  Header set Cache-Control "max-age=31536000, public"
+</FilesMatch>

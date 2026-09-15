@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique @db.VarChar(255)
+  name            String?   @db.VarChar(255)
+  password        String?   @db.VarChar(255)
+  role            String    @default("user") // user, admin
+  balance         Float     @default(0) @db.Decimal(10, 2)
+  emailVerified   Boolean?  @default(false) @map("email_verified")
+  image           String?
+  steamProfileUrl String?   @map("steam_profile_url") // Steam profile URL for gift delivery
+  steamVerified   Boolean   @default(false) @map("steam_verified")
+  referralCode    String    @unique @map("referral_code") @db.VarChar(50)
+  referredBy      String?   @map("referred_by")
+  twoFactorSecret String?   @map("two_factor_secret") @db.VarChar(255)
+  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
+  isActive        Boolean   @default(true) @map("is_active") // Can be disabled by admin
+  notes           String?   @db.Text // Admin notes about user
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  orders          Order[]
+  sessions        Session[]
+  tickets         Ticket[]
+  transactions    Transaction[]
+  verificationTokens VerificationToken[]
+  favorites       Favorite[]
+  referrer        User?     @relation("Referrals", fields: [referredBy], references: [id], onDelete: SetNull)
+  referrals       User[]    @relation("Referrals")
+  
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  image       String?
+  categoryId  String?
+  category    Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  stock       Int           @default(0)
+  isActive    Boolean       @default(true)
+  isFeatured  Boolean       @default(false)
+  nsGiftsId   String?
+  metadata    String?       // JSON string
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  orderItems  OrderItem[]
+  favorites   Favorite[]
+  
+  @@map("products")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  image       String?
+  icon        String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  products    Product[]
+  
+  @@map("categories")
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          String      @default("PENDING") // PENDING, PROCESSING, PAID, COMPLETED, FAILED, CANCELLED, REFUNDED
+  totalAmount     Float
+  paymentMethod   String?
+  paymentId       String?     @unique
+  nsGiftsOrderId  String?
+  deliveryEmail   String?     // Legacy field, kept for compatibility
+  steamProfileUrl String?     // Steam profile URL for gift delivery
+  deliveryData    String?     // JSON string for delivery details/tracking
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  paidAt          DateTime?
+  completedAt     DateTime?
+  
+  items           OrderItem[]
+  transactions    Transaction[]
+  
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  price     Float
+  
+  @@map("order_items")
+}
+
+model Settings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?  // Description of what this setting does
+  category    String   @default("general") // general, payment, shop, currency, etc
+  updatedAt   DateTime @updatedAt
+  
+  @@map("settings")
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject     String   @db.VarChar(255)
+  description String   @db.Text
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED, ARCHIVED
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  assignedTo  String?  @map("assigned_to") // User ID of moderator/admin assigned to this ticket
+  category    String   @default("general") // general, payment, technical, order
+  isArchived  Boolean  @default(false) @map("is_archived") // Archive status
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  closedAt    DateTime? @map("closed_at")
+  archivedAt  DateTime? @map("archived_at")
+  
+  messages    TicketMessage[]
+  
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id          String   @id @default(cuid())
+  ticketId    String   @map("ticket_id")
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id")
+  message     String   @db.Text
+  attachments String?  @db.Text // JSON array of attachment URLs
+  isStaff     Boolean  @default(false) @map("is_admin")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  @@map("ticket_messages")
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  amount      Float
+  type        String   // DEPOSIT, WITHDRAWAL, PURCHASE, REFUND, REFERRAL_BONUS, ADMIN_ADJUSTMENT
+  status      String   @default("PENDING") // PENDING, COMPLETED, FAILED, CANCELLED
+  description String?
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+  
+  @@map("transactions")
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  type       String   // EMAIL_VERIFICATION, PASSWORD_RESET
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  
+  @@map("verification_tokens")
+}
+
+model Favorite {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lastNotifiedPrice Float?  // Last price when user was notified
+  createdAt        DateTime @default(now())
+  
+  @@unique([userId, productId])
+  @@map("favorites")
+}
