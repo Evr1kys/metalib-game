@@ -9,7 +9,7 @@ import { rateLimitWithInfo, sanitizeInput } from '@/lib/security'
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -19,14 +19,14 @@ export async function GET(
     }
 
     // Валидация ID
-    if (!validateId(params.id)) {
+    if (!validateId((await params).id)) {
       return NextResponse.json({ error: 'Неверный ID пользователя' }, { status: 400 })
     }
 
     // Get user
     const userResult = await query(
       'SELECT * FROM users WHERE id = ?',
-      [params.id]
+      [(await params).id]
     )
 
     if (userResult.rows.length === 0) {
@@ -38,19 +38,19 @@ export async function GET(
     // Get recent orders
     const ordersResult = await query(
       'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 10',
-      [params.id]
+      [(await params).id]
     )
 
     // Get recent transactions
     const transactionsResult = await query(
       'SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 10',
-      [params.id]
+      [(await params).id]
     )
 
     // Get recent tickets
     const ticketsResult = await query(
       'SELECT * FROM tickets WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
-      [params.id]
+      [(await params).id]
     )
 
     const user = {
@@ -98,7 +98,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -108,7 +108,7 @@ export async function PATCH(
     }
 
     // Валидация ID
-    if (!validateId(params.id)) {
+    if (!validateId((await params).id)) {
       return NextResponse.json({ error: 'Неверный ID пользователя' }, { status: 400 })
     }
 
@@ -174,7 +174,7 @@ export async function PATCH(
     }
 
     if (updateFields.length > 0) {
-      updateValues.push(params.id)
+      updateValues.push((await params).id)
       await query(
         `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
         updateValues
@@ -185,7 +185,7 @@ export async function PATCH(
     if (balance !== undefined) {
       const currentUserResult = await query(
         'SELECT balance FROM users WHERE id = ?',
-        [params.id]
+        [(await params).id]
       )
 
       if (currentUserResult.rows.length > 0) {
@@ -198,7 +198,7 @@ export async function PATCH(
               user_id, amount, type, status, description, created_at
             ) VALUES (?, ?, 'ADMIN_ADJUSTMENT', 'COMPLETED', ?, NOW())`,
             [
-              params.id,
+              (await params).id,
               difference,
               sanitizeInput(`Admin balance adjustment by ${session.user.email}`)
             ]
@@ -210,7 +210,7 @@ export async function PATCH(
     // Get updated user
     const userResult = await query(
       'SELECT * FROM users WHERE id = ?',
-      [params.id]
+      [(await params).id]
     )
 
     if (userResult.rows.length === 0) {
@@ -241,7 +241,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -251,25 +251,25 @@ export async function DELETE(
     }
 
     // Валидация ID
-    if (!validateId(params.id)) {
+    if (!validateId((await params).id)) {
       return NextResponse.json({ error: 'Неверный ID пользователя' }, { status: 400 })
     }
 
     // Prevent deleting yourself
-    if (session.user.id === params.id) {
+    if (session.user.id === (await params).id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
     }
 
     // Delete related data first (cascading delete)
-    await query('DELETE FROM favorites WHERE user_id = ?', [params.id])
-    await query('DELETE FROM transactions WHERE user_id = ?', [params.id])
-    await query('DELETE FROM ticket_messages WHERE user_id = ?', [params.id])
-    await query('DELETE FROM tickets WHERE user_id = ?', [params.id])
-    await query('DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id = ?)', [params.id])
-    await query('DELETE FROM orders WHERE user_id = ?', [params.id])
+    await query('DELETE FROM favorites WHERE user_id = ?', [(await params).id])
+    await query('DELETE FROM transactions WHERE user_id = ?', [(await params).id])
+    await query('DELETE FROM ticket_messages WHERE user_id = ?', [(await params).id])
+    await query('DELETE FROM tickets WHERE user_id = ?', [(await params).id])
+    await query('DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id = ?)', [(await params).id])
+    await query('DELETE FROM orders WHERE user_id = ?', [(await params).id])
     
     // Delete user
-    await query('DELETE FROM users WHERE id = ?', [params.id])
+    await query('DELETE FROM users WHERE id = ?', [(await params).id])
 
     return NextResponse.json({ success: true })
   } catch (error) {

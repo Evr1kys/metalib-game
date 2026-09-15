@@ -10,7 +10,7 @@ import { validateId } from '@/lib/input-validation'
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now()
   
@@ -19,7 +19,7 @@ export async function GET(
     const apiKey = await validateApiKey(req)
     
     if (!apiKey) {
-      await logApiRequest('unknown', `/api/v1/products/${params.id}`, 'GET', 401, Date.now() - startTime)
+      await logApiRequest('unknown', `/api/v1/products/${(await params).id}`, 'GET', 401, Date.now() - startTime)
       return NextResponse.json(
         { error: 'Неверный или отсутствующий API ключ' },
         { status: 401 }
@@ -28,7 +28,7 @@ export async function GET(
 
     // Проверка прав
     if (!hasPermission(apiKey, 'products:read')) {
-      await logApiRequest(apiKey.id, `/api/v1/products/${params.id}`, 'GET', 403, Date.now() - startTime)
+      await logApiRequest(apiKey.id, `/api/v1/products/${(await params).id}`, 'GET', 403, Date.now() - startTime)
       return NextResponse.json(
         { error: 'Недостаточно прав для просмотра товаров' },
         { status: 403 }
@@ -36,8 +36,8 @@ export async function GET(
     }
 
     // Валидация ID
-    if (!validateId(params.id)) {
-      await logApiRequest(apiKey.id, `/api/v1/products/${params.id}`, 'GET', 400, Date.now() - startTime)
+    if (!validateId((await params).id)) {
+      await logApiRequest(apiKey.id, `/api/v1/products/${(await params).id}`, 'GET', 400, Date.now() - startTime)
       return NextResponse.json(
         { error: 'Неверный ID товара' },
         { status: 400 }
@@ -60,12 +60,12 @@ export async function GET(
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
        WHERE p.id = ?`,
-      [params.id]
+      [(await params).id]
     )
 
     if (result.rows.length === 0) {
       const responseTime = Date.now() - startTime
-      await logApiRequest(apiKey.id, `/api/v1/products/${params.id}`, 'GET', 404, responseTime)
+      await logApiRequest(apiKey.id, `/api/v1/products/${(await params).id}`, 'GET', 404, responseTime)
       return NextResponse.json(
         { error: 'Товар не найден' },
         { status: 404 }
@@ -90,7 +90,7 @@ export async function GET(
     }
 
     const responseTime = Date.now() - startTime
-    await logApiRequest(apiKey.id, `/api/v1/products/${params.id}`, 'GET', 200, responseTime)
+    await logApiRequest(apiKey.id, `/api/v1/products/${(await params).id}`, 'GET', 200, responseTime)
 
     return NextResponse.json({
       success: true,

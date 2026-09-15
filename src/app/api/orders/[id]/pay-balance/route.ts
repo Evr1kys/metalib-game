@@ -10,7 +10,7 @@ import { nsGiftsAPI } from '@/lib/nsgifts'
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -21,7 +21,7 @@ export async function POST(
 
     // Получаем заказ
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         items: {
           include: {

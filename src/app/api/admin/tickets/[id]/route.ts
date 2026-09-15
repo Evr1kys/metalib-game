@@ -7,7 +7,7 @@ import { query } from '@/lib/db'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -54,7 +54,7 @@ export async function PATCH(
     // Обновляем тикет
     await query(
       `UPDATE tickets SET ${updateFields.join(', ')} WHERE id = ?`,
-      [...updateValues, params.id]
+      [...updateValues, (await params).id]
     )
 
     // Получаем обновленный тикет
@@ -63,7 +63,7 @@ export async function PATCH(
        FROM tickets t
        LEFT JOIN users u ON t.user_id = u.id
        WHERE t.id = ?`,
-      [params.id]
+      [(await params).id]
     )
 
     if (ticketResult.rows.length === 0) {
@@ -73,7 +73,7 @@ export async function PATCH(
     // Получаем количество сообщений
     const countResult = await query(
       `SELECT COUNT(*) as count FROM ticket_messages WHERE ticket_id = ?`,
-      [params.id]
+      [(await params).id]
     )
 
     const row = ticketResult.rows[0]

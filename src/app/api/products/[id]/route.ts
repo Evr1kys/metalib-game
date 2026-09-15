@@ -9,11 +9,11 @@ import { rateLimitWithInfo } from '@/lib/security'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Валидация ID
-    if (!validateId(params.id)) {
+    if (!validateId((await params).id)) {
       return NextResponse.json({ error: 'Неверный ID товара' }, { status: 400 })
     }
 
@@ -32,7 +32,7 @@ export async function GET(
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
        WHERE p.id = ?`,
-      [params.id]
+      [(await params).id]
     )
 
     if (result.rows.length === 0) {
@@ -72,7 +72,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -82,7 +82,7 @@ export async function PUT(
     }
 
     // Валидация ID
-    if (!validateId(params.id)) {
+    if (!validateId((await params).id)) {
       return NextResponse.json({ error: 'Неверный ID товара' }, { status: 400 })
     }
 
@@ -151,7 +151,7 @@ export async function PUT(
     }
 
     updateFields.push('updated_at = NOW()')
-    updateValues.push(params.id)
+    updateValues.push((await params).id)
 
     await query(
       `UPDATE products SET ${updateFields.join(', ')} WHERE id = ?`,
@@ -164,7 +164,7 @@ export async function PUT(
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
        WHERE p.id = ?`,
-      [params.id]
+      [(await params).id]
     )
 
     if (productResult.rows.length === 0) {
@@ -203,7 +203,7 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -213,18 +213,18 @@ export async function DELETE(
     }
 
     // Валидация ID
-    if (!validateId(params.id)) {
+    if (!validateId((await params).id)) {
       return NextResponse.json({ error: 'Неверный ID товара' }, { status: 400 })
     }
 
     // Сначала удаляем связанные записи из order_items
-    await query('DELETE FROM order_items WHERE product_id = ?', [params.id])
+    await query('DELETE FROM order_items WHERE product_id = ?', [(await params).id])
     
     // Удаляем из избранного
-    await query('DELETE FROM favorites WHERE product_id = ?', [params.id])
+    await query('DELETE FROM favorites WHERE product_id = ?', [(await params).id])
 
     // Удаляем сам продукт
-    await query('DELETE FROM products WHERE id = ?', [params.id])
+    await query('DELETE FROM products WHERE id = ?', [(await params).id])
 
     return NextResponse.json({ success: true })
   } catch (error) {

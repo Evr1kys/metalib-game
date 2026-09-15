@@ -17,7 +17,7 @@ import {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -32,7 +32,7 @@ export async function GET(
        FROM tickets t
        LEFT JOIN users u ON t.user_id = u.id
        WHERE t.id = ?`,
-      [params.id]
+      [(await params).id]
     )
 
     if (ticketResult.rows.length === 0) {
@@ -53,7 +53,7 @@ export async function GET(
        LEFT JOIN users u ON tm.user_id = u.id
        WHERE tm.ticket_id = ?
        ORDER BY tm.created_at ASC`,
-      [params.id]
+      [(await params).id]
     )
 
     const ticket = {
@@ -98,7 +98,7 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -170,7 +170,7 @@ export async function POST(
        FROM tickets t
        LEFT JOIN users u ON t.user_id = u.id
        WHERE t.id = ?`,
-      [params.id]
+      [(await params).id]
     )
 
     if (ticketResult.rows.length === 0) {
@@ -198,7 +198,7 @@ export async function POST(
     await query(
       `INSERT INTO ticket_messages (id, ticket_id, user_id, message, attachments, is_admin, created_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [messageId, params.id, session.user.id, sanitizedMessage, attachmentsJson, isStaff ? 1 : 0]
+      [messageId, (await params).id, session.user.id, sanitizedMessage, attachmentsJson, isStaff ? 1 : 0]
     )
 
     // Обновляем статус тикета
@@ -206,7 +206,7 @@ export async function POST(
       `UPDATE tickets 
        SET status = ?, updated_at = NOW()
        WHERE id = ?`,
-      ['in_progress', params.id]
+      ['in_progress', (await params).id]
     )
 
     // Получаем созданное сообщение
@@ -257,7 +257,7 @@ export async function POST(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -272,12 +272,12 @@ export async function PATCH(
       `UPDATE tickets 
        SET status = ?, closed_at = ?, updated_at = NOW()
        WHERE id = ?`,
-      [status.toLowerCase(), status === 'CLOSED' ? new Date() : null, params.id]
+      [status.toLowerCase(), status === 'CLOSED' ? new Date() : null, (await params).id]
     )
 
     const ticketResult = await query(
       `SELECT * FROM tickets WHERE id = ?`,
-      [params.id]
+      [(await params).id]
     )
 
     const ticket = {

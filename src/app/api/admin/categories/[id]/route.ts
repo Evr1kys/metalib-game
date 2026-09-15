@@ -8,12 +8,12 @@ import { query } from '@/lib/db'
 // GET - получить категорию по ID
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const categoryResult = await query(
       'SELECT * FROM categories WHERE id = ?',
-      [params.id]
+      [(await params).id]
     )
 
     if (categoryResult.rows.length === 0) {
@@ -23,13 +23,13 @@ export async function GET(
     // Get active products
     const productsResult = await query(
       'SELECT * FROM products WHERE category_id = ? AND is_active = 1 LIMIT 10',
-      [params.id]
+      [(await params).id]
     )
 
     // Get products count
     const countResult = await query(
       'SELECT COUNT(*) as total FROM products WHERE category_id = ?',
-      [params.id]
+      [(await params).id]
     )
 
     const row = categoryResult.rows[0]
@@ -64,7 +64,7 @@ export async function GET(
 // PUT - обновить категорию
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -86,12 +86,12 @@ export async function PUT(
         sort_order = ?,
         is_active = ?
        WHERE id = ?`,
-      [name, slug, description, image, icon, sortOrder, isActive ? 1 : 0, params.id]
+      [name, slug, description, image, icon, sortOrder, isActive ? 1 : 0, (await params).id]
     )
 
     const categoryResult = await query(
       'SELECT * FROM categories WHERE id = ?',
-      [params.id]
+      [(await params).id]
     )
 
     if (categoryResult.rows.length === 0) {
@@ -120,7 +120,7 @@ export async function PUT(
 // DELETE - удалить категорию
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -132,7 +132,7 @@ export async function DELETE(
     // Проверяем, есть ли товары в категории
     const countResult = await query(
       'SELECT COUNT(*) as total FROM products WHERE category_id = ?',
-      [params.id]
+      [(await params).id]
     )
 
     const productsCount = countResult.rows[0].total || 0
@@ -144,7 +144,7 @@ export async function DELETE(
       )
     }
 
-    await query('DELETE FROM categories WHERE id = ?', [params.id])
+    await query('DELETE FROM categories WHERE id = ?', [(await params).id])
 
     return NextResponse.json({ success: true })
   } catch (error) {

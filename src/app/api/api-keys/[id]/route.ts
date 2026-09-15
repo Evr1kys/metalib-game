@@ -8,7 +8,7 @@ import { query } from '@/lib/db'
 // DELETE /api/api-keys/[id] - Удалить API ключ
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -20,7 +20,7 @@ export async function DELETE(
       )
     }
 
-    const keyId = params.id
+    const keyId = (await params).id
 
     // Проверяем принадлежность ключа пользователю
     const result = await query(

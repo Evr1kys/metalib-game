@@ -7,7 +7,7 @@ import { query } from '@/lib/db'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -55,14 +55,14 @@ export async function PATCH(
         systemRequirements ? JSON.stringify({ systemRequirements }) : null,
         isActive ? 1 : 0,
         isFeatured ? 1 : 0,
-        params.id
+        (await params).id
       ]
     )
 
     // Получаем обновленный продукт
     const productResult = await query(
       'SELECT * FROM products WHERE id = ?',
-      [params.id]
+      [(await params).id]
     )
 
     if (productResult.rows.length === 0) {
@@ -101,7 +101,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -111,13 +111,13 @@ export async function DELETE(
     }
 
     // Удаление связанных элементов заказов
-    await query('DELETE FROM order_items WHERE product_id = ?', [params.id])
+    await query('DELETE FROM order_items WHERE product_id = ?', [(await params).id])
 
     // Удаление из избранного
-    await query('DELETE FROM favorites WHERE product_id = ?', [params.id])
+    await query('DELETE FROM favorites WHERE product_id = ?', [(await params).id])
 
     // Удаление товара
-    await query('DELETE FROM products WHERE id = ?', [params.id])
+    await query('DELETE FROM products WHERE id = ?', [(await params).id])
 
     return NextResponse.json({
       success: true,

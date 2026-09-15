@@ -1,5 +1,7 @@
 # MetaLib Game
 
+[![CI](https://github.com/Evr1kys/metalib-game/actions/workflows/ci.yml/badge.svg)](https://github.com/Evr1kys/metalib-game/actions/workflows/ci.yml)
+
 Интернет-магазин цифровых товаров с пользовательской и административной частью.
 
 В проекте реализованы каталог и категории, регистрация, подтверждение почты, двухфакторная авторизация, профиль, избранное, заказы, баланс, платежи, обращения в поддержку, API-ключи и административная панель.
@@ -15,7 +17,7 @@
 ## Локальный запуск
 
 ```bash
-npm install
+npm ci
 cp .env.example .env
 npx prisma generate
 npx prisma db push
